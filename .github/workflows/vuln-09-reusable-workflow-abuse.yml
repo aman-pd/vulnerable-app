@@ -1,0 +1,23 @@
+name: "VULN-09: Reusable Workflow Abuse"
+
+# VULNERABILITY: Trusting external reusable workflow via mutable @main reference
+# RISK: The shared workflow receives all explicitly passed secrets
+# REAL WORLD: If the external repo is compromised, your secrets are exposed
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    uses: aman-pd/shared-workflows/.github/workflows/deploy.yml@main
+    with:
+      environment: production
+      app-name: vulnerable-app
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      KUBECONFIG: ${{ secrets.KUBECONFIG }}
+      DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
