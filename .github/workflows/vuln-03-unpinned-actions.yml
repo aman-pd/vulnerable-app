@@ -1,0 +1,48 @@
+name: "VULN-03: Unpinned Third-Party Action (Tag Hijack)"
+
+# VULNERABILITY: Using a third-party action pinned to a mutable tag (@v1)
+# RISK: Attacker who compromises the action repo can force-push a malicious 
+#       commit to the tag, and ALL consumers silently execute it
+# REAL WORLD: tj-actions/changed-files (CVE-2025-30066) — 23,000+ repos affected
+# DEFENSE: Pin actions to full commit SHA, not tags or branches
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4  # Even first-party actions should be SHA-pinned
+
+      # VULNERABLE: Tag-pinned third-party action
+      # An attacker who controls aman-pd/evil-action can force-push v1 tag
+      # to point to a malicious commit, and this workflow will run it
+      - name: Detect changed files
+        id: changes
+        uses: aman-pd/evil-action@v1  # ⚠️ VULNERABLE - tag can be hijacked!
+
+      - name: Show results
+        run: |
+          echo "Changed files: ${{ steps.changes.outputs.changed_files }}"
+          echo "Any changed: ${{ steps.changes.outputs.any_changed }}"
+
+      - name: Deploy if changes detected
+        if: steps.changes.outputs.any_changed == 'true'
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PROD_API_KEY: ${{ secrets.PROD_API_KEY }}
+        run: |
+          echo "Deploying changes..."
+          # These secrets are now exposed to whatever code runs in the action above
+          echo "Deploy key available: ${#DEPLOY_KEY} chars"
