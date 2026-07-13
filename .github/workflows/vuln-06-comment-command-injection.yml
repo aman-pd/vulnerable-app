@@ -1,0 +1,35 @@
+name: "VULN-06: Comment Command Injection"
+
+# VULNERABILITY: Slash commands parsed from issue comments via ${{ }} injection
+# RISK: ANY GitHub user can post a comment on a public repo to trigger RCE
+# REAL WORLD: Many projects implement /deploy or /approve bots this way
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  handle-command:
+    if: startsWith(github.event.comment.body, '/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse and execute command
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+        run: |
+          COMMENT="${{ github.event.comment.body }}"
+          CMD=$(echo "$COMMENT" | head -1 | cut -d' ' -f1)
+          ARGS=$(echo "$COMMENT" | head -1 | cut -d' ' -f2-)
+          echo "Running command: $CMD with args: $ARGS"
+          if [ "$CMD" = "/deploy" ]; then
+            echo "Deploying: $ARGS"
+          elif [ "$CMD" = "/test" ]; then
+            echo "Testing: $ARGS"
+          fi

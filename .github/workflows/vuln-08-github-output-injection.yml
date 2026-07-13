@@ -1,0 +1,33 @@
+name: "VULN-08: GITHUB_OUTPUT Injection"
+
+# VULNERABILITY: PR title written to GITHUB_OUTPUT without sanitization
+# RISK: Newlines in title inject additional output parameters
+# SECONDARY: Output consumed via ${{ }} in downstream steps = expression injection
+
+on:
+  pull_request:
+    types: [opened, edited]
+
+jobs:
+  metadata:
+    runs-on: ubuntu-latest
+    outputs:
+      pr-title: ${{ steps.get-title.outputs.title }}
+    steps:
+      - name: Extract PR title
+        id: get-title
+        run: |
+          echo "title=${{ github.event.pull_request.title }}" >> $GITHUB_OUTPUT
+      - name: Use title in downstream
+        run: |
+          echo "Processing PR: ${{ steps.get-title.outputs.title }}"
+  notify:
+    needs: metadata
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send notification
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        run: |
+          curl -X POST $SLACK_WEBHOOK \
+            -d "{\"text\": \"New PR: ${{ needs.metadata.outputs.pr-title }}\"}"

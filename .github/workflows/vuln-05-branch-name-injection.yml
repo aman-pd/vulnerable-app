@@ -1,0 +1,29 @@
+name: "VULN-05: Branch Name Injection"
+
+# VULNERABILITY: github.head_ref is attacker-controlled and injected into shell
+# RISK: Branch names can contain shell metacharacters that execute as code
+# REAL WORLD: Ultralytics YOLO compromise (Dec 2024) - malicious PyPI packages published
+
+on:
+  pull_request_target:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log branch info
+        run: |
+          echo "PR from branch: ${{ github.head_ref }}"
+          echo "Target: ${{ github.base_ref }}"
+          echo "PR title: ${{ github.event.pull_request.title }}"
+      - name: Run linter on branch
+        env:
+          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          echo "Linting branch $BRANCH"

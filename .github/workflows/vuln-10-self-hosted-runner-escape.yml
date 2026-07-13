@@ -1,0 +1,27 @@
+name: "VULN-10: Self-Hosted Runner Escape"
+
+# VULNERABILITY: Self-hosted runners used with pull_request trigger on public repo
+# RISK: Any GitHub user can execute arbitrary code on your infrastructure
+# REAL WORLD: Cryptominers, persistent backdoors, lateral movement to internal network
+
+# NOTE: This workflow won't actually run without a self-hosted runner configured.
+# It exists to demonstrate the PATTERN that is dangerous.
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  perf-test:
+    runs-on: [self-hosted, linux, x64]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run performance tests
+        run: |
+          pip install -r requirements.txt
+          python -m pytest tests/performance/ --benchmark 2>/dev/null || echo "No tests found"
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-results
+          path: benchmark-results/

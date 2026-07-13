@@ -1,0 +1,32 @@
+name: "VULN-04b: Deploy from Artifact (Privileged)"
+
+# VULNERABILITY: Downloads and EXECUTES artifacts from untrusted PR builds
+# RISK: Artifact contains attacker-controlled code that runs with production secrets
+# REAL WORLD: Artifact poisoning bridges unprivileged to privileged contexts
+
+on:
+  workflow_run:
+    workflows: ["VULN-04a: Build Artifact (Untrusted PR)"]
+    types: [completed]
+
+permissions:
+  contents: write
+  deployments: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: build-output
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Execute deployment
+        env:
+          PROD_API_KEY: ${{ secrets.PROD_API_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          chmod +x deploy.sh
+          ./deploy.sh

@@ -1,0 +1,25 @@
+name: "VULN-04a: Build Artifact (Untrusted PR)"
+
+# VULNERABILITY: Builds artifacts from fork PR code
+# This artifact is then consumed by a privileged workflow (vuln-04b)
+# RISK: Attacker poisons the build artifact with malicious code
+
+on:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: |
+          mkdir -p dist
+          echo '#!/bin/bash' > dist/deploy.sh
+          echo 'echo "Deploying..."' >> dist/deploy.sh
+          chmod +x dist/deploy.sh
+          npm run build 2>/dev/null || echo "build placeholder"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: dist/

